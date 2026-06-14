@@ -1,85 +1,51 @@
-import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
+import { AuthGuard as PassportAuthGuard } from '@nestjs/passport';
 import { UsersService } from '../../modules/users/users.service';
 
 @Injectable()
-export class AuthGuard implements CanActivate {
-  constructor(
-    private configService: ConfigService,
-    private usersService: UsersService,
-  ) {}
+export class AuthGuard extends PassportAuthGuard('jwt') {
+  constructor(private readonly usersService: UsersService) {
+    super();
+  }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const request = context.switchToHttp().getRequest();
-    const authHeader = request.headers.authorization;
-
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      throw new UnauthorizedException('Authorization header missing or invalid');
-    }
-
-    const token = authHeader.split(' ')[1];
-    let payload: any = null;
-
-    if (token === 'dummy-token' || token === 'dummy_owner') {
-      payload = {
-        sub: 'auth0|65f123456789abcdef012345',
-        name: 'John Doe',
-        email: 'john.doe@example.com',
-        roles: ['owner'],
-        avatar: 'https://api.dicebear.com/7.x/initials/svg?seed=John%20Doe',
-      };
-    } else if (token === 'dummy_member' || token === 'dummy_jane') {
-      payload = {
-        sub: 'auth0|9876543210fedcba98765432',
-        name: 'Jane Smith',
-        email: 'jane.smith@example.com',
-        roles: ['member'],
-        avatar: 'https://api.dicebear.com/7.x/initials/svg?seed=Jane%20Smith',
-      };
-    } else {
-      try {
-        if (token.includes('.')) {
-          const base64Payload = token.split('.')[1];
-          if (base64Payload) {
-            payload = JSON.parse(Buffer.from(base64Payload, 'base64').toString('utf8'));
-          }
-        }
-      } catch (e) {
-        throw new UnauthorizedException('Failed to parse authorization token');
-      }
-    }
-
-    if (!payload) {
-      payload = {
-        sub: 'mock|' + token.substring(0, 10),
-        name: 'Mock ' + token.substring(0, 5),
-        email: `${token.substring(0, 5)}@example.com`,
-        roles: ['member'],
-      };
-    }
-
-    // Lazy-register user in database
+    // 1. Delegate validation to Passport (validate JWT signature/expiry with Auth0)
+    let passportActivated = false;
     try {
-      const user = await this.usersService.findOrCreateUser(payload.sub, {
-        name: payload.name || 'Anonymous User',
-        email: payload.email || `${payload.sub}@example.com`,
-        avatar: payload.picture || payload.avatar,
-      });
-      
-      // Inject Mongoose user document representation into request
-      request.user = {
-        sub: user._id,
-        name: user.name,
-        email: user.email,
-        avatar: user.avatar,
-        roles: payload.roles || ['member'],
-      };
+      passportActivated = (await super.canActivate(context)) as boolean;
     } catch (err) {
-      // Fallback request injection if database fails
-      request.user = payload;
+      throw new UnauthorizedException(err.message || 'Authentication failed');
     }
+
+    if (!passportActivated) return false;
+
+    const request = context.switchToHttp().getRequest();
+    // Passport injected Auth0 token payload into request.user
+    const payload = request.user as any;
+    if (!payload || !payload.sub) {
+      throw new UnauthorizedException('Invalid token payload');
+    }
+
+    // 2. Auto-provision user from Auth0 token claims
+    const name = payload.name || payload.nickname || 'Anonymous User';
+    const email = payload.email || `${payload.sub}@example.com`;
+    const avatar = payload.picture || '';
+
+    const dbUser = await this.usersService.findOrCreateUser(payload.sub, {
+      name,
+      email,
+      avatar,
+    });
+
+    // 3. Replace request.user with fully-typed user context
+    request.user = {
+      sub: dbUser._id,
+      name: dbUser.name,
+      email: dbUser.email,
+      avatar: dbUser.avatar,
+      roles: payload['https://cosync.com/roles'] || payload.roles || ['member'],
+    };
 
     return true;
   }
 }
-

@@ -29,10 +29,10 @@ export class Task {
   @Prop({ required: true, default: 'To Do' })
   status: string;
 
-  @Prop({ default: null })
+  @Prop({ type: String, default: null })
   assigneeId: string | null;
 
-  @Prop({ default: null })
+  @Prop({ type: Date, default: null })
   dueDate: Date | null;
 
   @Prop({ type: [String], default: [] })

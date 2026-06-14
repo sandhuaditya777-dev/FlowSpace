@@ -1,12 +1,12 @@
-'use client';
+"use client";
 
-import { useForm } from 'react-hook-form';
-import { FolderKanban } from 'lucide-react';
-import { useCreateProject } from '@/api/projects';
-import { Dialog } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Button } from '@/components/ui/button';
+import { useForm } from "react-hook-form";
+import { FolderKanban } from "lucide-react";
+import { useCreateProject } from "@/api/projects";
+import { Dialog } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
 
 interface Props {
   open: boolean;
@@ -20,20 +20,29 @@ interface FormValues {
   description: string;
 }
 
-export default function CreateProjectDialog({ open, onClose, workspaceId, onCreated }: Props) {
+export default function CreateProjectDialog({
+  open,
+  onClose,
+  workspaceId,
+  onCreated,
+}: Props) {
   const {
     register,
     handleSubmit,
     reset,
     formState: { errors },
   } = useForm<FormValues>({
-    defaultValues: { name: '', description: '' },
+    defaultValues: { name: "", description: "" },
   });
   const { mutate, isPending, error: apiError } = useCreateProject();
 
   const onSubmit = (data: FormValues) => {
     mutate(
-      { name: data.name.trim(), description: data.description.trim(), workspaceId },
+      {
+        name: data.name.trim(),
+        description: data.description.trim(),
+        workspaceId,
+      },
       {
         onSuccess: (project) => {
           reset();
@@ -47,40 +56,39 @@ export default function CreateProjectDialog({ open, onClose, workspaceId, onCrea
   return (
     <Dialog
       open={open}
-      onClose={() => {
+      onOpenChange={() => {
         reset();
         onClose();
       }}
-      title="Create Project"
-      description="Organize tasks inside this workspace"
     >
       <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
         <div className="flex items-center gap-3 mb-2 p-3 bg-slate-800/30 border border-slate-800 rounded-xl">
-          <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center flex-shrink-0">
+          <div className="h-10 w-10 rounded-xl bg-linear-to-br from-emerald-500 to-teal-600 flex items-center justify-center flex-shrink-0">
             <FolderKanban className="h-5 w-5 text-white" />
           </div>
           <div className="text-left">
-            <h4 className="text-sm font-semibold text-white">Project Details</h4>
-            <p className="text-[11px] text-slate-500 font-medium">Scoped to the current active workspace</p>
+            <h4 className="text-sm font-semibold text-white">
+              Project Details
+            </h4>
+            <p className="text-[11px] text-slate-500 font-medium">
+              Scoped to the current active workspace
+            </p>
           </div>
         </div>
 
         <Input
-          label="Project Name"
           placeholder="e.g. Sprint Alpha"
-          error={errors.name?.message}
-          {...register('name', {
-            required: 'Project name is required',
-            validate: (value) => !!value.trim() || 'Project name cannot be empty',
+          {...register("name", {
+            required: "Project name is required",
+            validate: (value) =>
+              !!value.trim() || "Project name cannot be empty",
           })}
         />
 
         <Textarea
-          label="Description (optional)"
           placeholder="What is this project about?"
           rows={3}
-          error={errors.description?.message}
-          {...register('description')}
+          {...register("description")}
         />
 
         {apiError && (
@@ -101,7 +109,7 @@ export default function CreateProjectDialog({ open, onClose, workspaceId, onCrea
           >
             Cancel
           </Button>
-          <Button type="submit" variant="default" className="flex-1" loading={isPending}>
+          <Button type="submit" variant="default" className="flex-1">
             Create Project
           </Button>
         </div>

@@ -16,6 +16,21 @@ export class User {
 
   @Prop({ default: '' })
   avatar: string;
+
+  @Prop({ type: String, default: 'MEMBER' })
+  role: string; // Global platform role (MEMBER, SUPER_ADMIN)
+
+  @Prop({ type: String, default: 'ACTIVE' })
+  status: string; // ACTIVE, INACTIVE
+
+  @Prop({ type: String, default: 'UTC' })
+  timezone: string;
+
+  @Prop({ type: String, default: 'en' })
+  language: string;
+
+  @Prop({ type: MongooseSchema.Types.Map, of: String, default: {} })
+  preferences: Map<string, string>;
 }
 
 export const UserSchema: MongooseSchema = SchemaFactory.createForClass(User);
