@@ -1,46 +1,48 @@
-"use client";
+'use client';
 
-import { useForm } from "react-hook-form";
-import { Building2 } from "lucide-react";
-import { useCreateWorkspace } from "@/api/workspaces";
+import { useForm } from 'react-hook-form';
+import { FolderOpen } from 'lucide-react';
+import { useCreateWorkspace } from '@/api/workspaces';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogDescription,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 
 interface Props {
   open: boolean;
   onClose: () => void;
+  organizationId: string;
   onCreated: (id: string) => void;
 }
 
 interface FormValues {
   name: string;
+  description?: string;
 }
 
-export default function CreateWorkspaceDialog({
-  open,
-  onClose,
-  onCreated,
-}: Props) {
+export default function CreateWorkspaceDialog({ open, onClose, organizationId, onCreated }: Props) {
   const {
     register,
     handleSubmit,
     reset,
     formState: { errors },
   } = useForm<FormValues>({
-    defaultValues: { name: "" },
+    defaultValues: { name: '', description: '' },
   });
   const { mutate, isPending, error: apiError } = useCreateWorkspace();
 
   const onSubmit = (data: FormValues) => {
     mutate(
-      { name: data.name.trim() },
+      {
+        name: data.name.trim(),
+        description: data.description?.trim(),
+        organizationId,
+      },
       {
         onSuccess: (ws) => {
           reset();
@@ -51,76 +53,78 @@ export default function CreateWorkspaceDialog({
     );
   };
 
-  const handleOpenChange = (isOpen: boolean) => {
-    if (!isOpen) {
-      reset();
-      onClose();
-    }
+  const handleClose = () => {
+    reset();
+    onClose();
   };
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-md">
+    <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
+      <DialogContent className="bg-slate-900 border border-slate-800 text-slate-100 sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="sr-only">Create Workspace</DialogTitle>
-          <DialogDescription className="sr-only">
-            Create a new workspace by giving it a name
-          </DialogDescription>
+          <div className="flex items-center gap-3 mb-1">
+            <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center flex-shrink-0">
+              <FolderOpen className="h-4.5 w-4.5 text-white" />
+            </div>
+            <div className="text-left">
+              <DialogTitle className="text-sm font-semibold text-white">
+                Create Workspace
+              </DialogTitle>
+              <DialogDescription className="text-[11px] text-slate-500">
+                A shared hub for your team's projects
+              </DialogDescription>
+            </div>
+          </div>
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
-          <div className="flex items-center gap-3 mb-2 p-3 bg-slate-800/30 border border-slate-800 rounded-xl">
-            <div className="h-10 w-10 rounded-xl bg-linear-to-br from-indigo-500 to-violet-600 flex items-center justify-center flex-shrink-0">
-              <Building2 className="h-5 w-5 text-white" />
-            </div>
-            <div className="text-left">
-              <h4 className="text-sm font-semibold text-white">
-                Workspace Details
-              </h4>
-              <p className="text-[11px] text-slate-500">
-                Choose a high-level name for your workspace
-              </p>
-            </div>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-medium text-slate-400">Workspace Name</label>
+            <Input
+              placeholder="e.g. Engineering"
+              className="bg-slate-800/50 border-slate-700 text-slate-100 placeholder:text-slate-500"
+              {...register('name', {
+                required: 'Workspace name is required',
+                validate: (value) => !!value.trim() || 'Workspace name cannot be empty',
+              })}
+            />
+            {errors.name && (
+              <p className="text-xs text-red-400">{errors.name.message}</p>
+            )}
           </div>
 
-          <Input
-            placeholder="e.g. Engineering Team"
-            {...register("name", {
-              required: "Workspace name is required",
-              validate: (value) =>
-                !!value.trim() || "Workspace name cannot be empty",
-            })}
-          />
-
-          {errors.name && (
-            <p className="text-xs text-red-400 -mt-2">{errors.name.message}</p>
-          )}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-medium text-slate-400">
+              Description <span className="text-slate-600">(optional)</span>
+            </label>
+            <Input
+              placeholder="What is this workspace for?"
+              className="bg-slate-800/50 border-slate-700 text-slate-100 placeholder:text-slate-500"
+              {...register('description')}
+            />
+          </div>
 
           {apiError && (
-            <p className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2 text-left">
+            <p className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
               {(apiError as Error).message}
             </p>
           )}
 
-          <div className="flex gap-2.5 pt-2">
+          <div className="flex gap-2.5 pt-1">
             <Button
               type="button"
               variant="secondary"
               className="flex-1"
-              onClick={() => {
-                reset();
-                onClose();
-              }}
+              onClick={handleClose}
             >
               Cancel
             </Button>
             <Button
               type="submit"
-              variant="default"
-              className="flex-1"
+              className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white"
               disabled={isPending}
             >
-              {isPending ? "Creating..." : "Create Workspace"}
+              {isPending ? 'Creating…' : 'Create Workspace'}
             </Button>
           </div>
         </form>

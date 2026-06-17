@@ -1,25 +1,44 @@
-import { IsString, IsNotEmpty, MinLength, MaxLength, IsOptional } from 'class-validator';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import {
+  IsString,
+  IsNotEmpty,
+  MinLength,
+  MaxLength,
+  IsOptional,
+  IsUrl,
+} from 'class-validator';
+import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 
 export class CreateWorkspaceDto {
-  @ApiProperty({ example: 'My Awesome Team' })
+  @ApiProperty({ example: 'Engineering' })
   @IsString()
   @IsNotEmpty()
   @MinLength(2)
   @MaxLength(60)
   name: string;
 
-  @ApiPropertyOptional({ example: 'my-awesome-team' })
+  @ApiProperty({ example: '64ab12ef...' })
+  @IsString()
+  @IsNotEmpty()
+  organizationId: string;
+
+  @ApiPropertyOptional({ description: 'Parent workspace ID for nesting' })
   @IsString()
   @IsOptional()
-  slug?: string;
+  parentId?: string;
+
+  @ApiPropertyOptional({ example: 'Handles all frontend work' })
+  @IsString()
+  @IsOptional()
+  description?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUrl()
+  logoUrl?: string;
 }
 
-export class UpdateWorkspaceDto {
-  @ApiPropertyOptional({ example: 'New Workspace Name' })
-  @IsString()
+export class UpdateWorkspaceDto extends PartialType(CreateWorkspaceDto) {
+  @ApiPropertyOptional()
   @IsOptional()
-  @MinLength(2)
-  @MaxLength(60)
-  name?: string;
+  settings?: Record<string, unknown>;
 }
