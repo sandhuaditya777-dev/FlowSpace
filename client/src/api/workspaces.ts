@@ -4,10 +4,12 @@ import { api } from './api-client';
 import type { Workspace } from './types';
 
 // ── Queries ──────────────────────────────────────────────
-export function useWorkspaces() {
+
+export function useWorkspaces(orgId: string | null) {
   return useQuery<Workspace[]>({
-    queryKey: ['workspaces'],
-    queryFn: () => api.get<Workspace[]>('/workspaces'),
+    queryKey: ['workspaces', orgId],
+    queryFn: () => api.get<Workspace[]>(`/workspaces/org/${orgId}`),
+    enabled: !!orgId,
   });
 }
 
@@ -20,15 +22,17 @@ export function useWorkspace(id: string | null) {
 }
 
 // ── Mutations ─────────────────────────────────────────────
+
 export function useCreateWorkspace() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: { name: string }) => api.post<Workspace>('/workspaces', data),
-    onSuccess: (res) => {
-      qc.invalidateQueries({ queryKey: ['workspaces'] });
-      toast.success(`Workspace "${res.name}" created successfully!`);
+    mutationFn: (data: { name: string; organizationId: string; parentId?: string; description?: string }) =>
+      api.post<Workspace>('/workspaces', data),
+    onSuccess: (res, variables) => {
+      qc.invalidateQueries({ queryKey: ['workspaces', variables.organizationId] });
+      toast.success(`Workspace "${res.name}" created!`);
     },
-    onError: (err) => {
+    onError: (err: Error) => {
       toast.error(`Failed to create workspace: ${err.message}`);
     },
   });
@@ -37,14 +41,14 @@ export function useCreateWorkspace() {
 export function useUpdateWorkspace() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: { name: string } }) =>
+    mutationFn: ({ id, data }: { id: string; data: { name?: string; description?: string } }) =>
       api.patch<Workspace>(`/workspaces/${id}`, data),
     onSuccess: (res, { id }) => {
       qc.invalidateQueries({ queryKey: ['workspaces'] });
       qc.invalidateQueries({ queryKey: ['workspace', id] });
       toast.success(`Workspace renamed to "${res.name}"!`);
     },
-    onError: (err) => {
+    onError: (err: Error) => {
       toast.error(`Failed to rename workspace: ${err.message}`);
     },
   });
@@ -58,7 +62,7 @@ export function useDeleteWorkspace() {
       qc.invalidateQueries({ queryKey: ['workspaces'] });
       toast.success('Workspace deleted successfully.');
     },
-    onError: (err) => {
+    onError: (err: Error) => {
       toast.error(`Failed to delete workspace: ${err.message}`);
     },
   });

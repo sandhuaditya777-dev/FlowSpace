@@ -17,8 +17,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "CoSync | Real-Time Collaboration Platform",
-  description: "Scale your team synergy with real-time tasks, kanban boards, active chat, and seamless AI assistance.",
+  title: "Orbit | Real-Time Collaboration Platform",
+  description: "Orbit keeps your team in sync with real-time tasks, kanban boards, live chat, and AI assistance.",
 };
 
 export default function RootLayout({

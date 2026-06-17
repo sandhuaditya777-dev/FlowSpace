@@ -1,6 +1,6 @@
 import {
   Controller, Get, Post, Patch, Delete,
-  Body, Param, UseGuards,
+  Body, Param, UseGuards, HttpCode, HttpStatus,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { WorkspacesService } from './workspaces.service';
@@ -16,15 +16,15 @@ export class WorkspacesController {
   constructor(private readonly workspacesService: WorkspacesService) {}
 
   @Post()
-  @ApiOperation({ summary: 'Create a new workspace' })
+  @ApiOperation({ summary: 'Create a new workspace (org OWNER/MANAGER only)' })
   create(@User('sub') userId: string, @Body() dto: CreateWorkspaceDto) {
     return this.workspacesService.create(userId, dto);
   }
 
-  @Get()
-  @ApiOperation({ summary: 'List all workspaces for the current user' })
-  findAll(@User('sub') userId: string) {
-    return this.workspacesService.findAllForUser(userId);
+  @Get('org/:orgId')
+  @ApiOperation({ summary: 'List top-level workspaces in an organization' })
+  findAllInOrg(@Param('orgId') orgId: string, @User('sub') userId: string) {
+    return this.workspacesService.findAllInOrg(orgId, userId);
   }
 
   @Get(':id')
@@ -33,8 +33,20 @@ export class WorkspacesController {
     return this.workspacesService.findById(id, userId);
   }
 
+  @Get(':id/children')
+  @ApiOperation({ summary: 'Get child workspaces' })
+  getChildren(@Param('id') id: string, @User('sub') userId: string) {
+    return this.workspacesService.getChildren(id, userId);
+  }
+
+  @Get(':id/ancestors')
+  @ApiOperation({ summary: 'Get ancestor chain (breadcrumb) to workspace root' })
+  getAncestors(@Param('id') id: string, @User('sub') userId: string) {
+    return this.workspacesService.getAncestors(id, userId);
+  }
+
   @Patch(':id')
-  @ApiOperation({ summary: 'Update workspace name' })
+  @ApiOperation({ summary: 'Update workspace (org OWNER/MANAGER only)' })
   update(
     @Param('id') id: string,
     @User('sub') userId: string,
@@ -44,7 +56,8 @@ export class WorkspacesController {
   }
 
   @Delete(':id')
-  @ApiOperation({ summary: 'Delete a workspace (owner only)' })
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Delete workspace + all children (org OWNER only)' })
   remove(@Param('id') id: string, @User('sub') userId: string) {
     return this.workspacesService.delete(id, userId);
   }

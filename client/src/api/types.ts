@@ -1,8 +1,33 @@
+export interface Organization {
+  _id: string;
+  name: string;
+  slug: string;
+  description?: string;
+  logoUrl?: string;
+  isArchived: boolean;
+  ownerId: string;
+  settings: Record<string, unknown>;
+  createdAt: string;
+}
+
+export interface OrganizationMember {
+  _id: string;
+  userId: string;
+  organizationId: string;
+  role: 'OWNER' | 'MANAGER' | 'MEMBER' | 'VIEWER';
+  createdAt: string;
+}
+
 export interface Workspace {
   _id: string;
   name: string;
   slug: string;
+  organizationId: string;
   ownerId: string;
+  parentId: string | null;
+  description?: string;
+  logoUrl?: string;
+  isArchived: boolean;
   members: { userId: string; role: string }[];
   createdAt: string;
 }

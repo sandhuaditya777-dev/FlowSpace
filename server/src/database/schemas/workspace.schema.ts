@@ -1,7 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Schema as MongooseSchema } from 'mongoose';
 
-export type WorkspaceMemberRole = 'owner' | 'admin' | 'member' | 'guest';
+export type WorkspaceMemberRole = 'OWNER' | 'MANAGER' | 'MEMBER' | 'VIEWER';
 
 export interface WorkspaceMember {
   userId: string;
@@ -15,11 +15,29 @@ export class Workspace {
   @Prop({ required: true })
   name: string;
 
-  @Prop({ required: true, unique: true })
+  @Prop({ required: true })
   slug: string;
 
   @Prop({ required: true })
+  organizationId: string;
+
+  @Prop({ required: true })
   ownerId: string;
+
+  @Prop({ default: null })
+  parentId: string | null;
+
+  @Prop()
+  description?: string;
+
+  @Prop()
+  logoUrl?: string;
+
+  @Prop({ default: false })
+  isArchived: boolean;
+
+  @Prop({ type: MongooseSchema.Types.Mixed, default: {} })
+  settings: Record<string, unknown>;
 
   @Prop({
     type: [
@@ -27,8 +45,8 @@ export class Workspace {
         userId: { type: String, required: true },
         role: {
           type: String,
-          enum: ['owner', 'admin', 'member', 'guest'],
-          default: 'member',
+          enum: ['OWNER', 'MANAGER', 'MEMBER', 'VIEWER'],
+          default: 'MEMBER',
         },
       },
     ],
@@ -38,3 +56,6 @@ export class Workspace {
 }
 
 export const WorkspaceSchema: MongooseSchema = SchemaFactory.createForClass(Workspace);
+
+// Unique slug within an organization
+WorkspaceSchema.index({ organizationId: 1, slug: 1 }, { unique: true });
