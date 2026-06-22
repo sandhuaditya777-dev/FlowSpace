@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, MinLength, MaxLength, IsOptional, IsEnum, IsDateString } from 'class-validator';
+import { IsString, IsNotEmpty, MinLength, MaxLength, IsOptional, IsEnum, IsDateString, IsArray, IsNumber, IsBoolean } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateTaskDto {
@@ -24,20 +24,47 @@ export class CreateTaskDto {
   @IsOptional()
   description?: string;
 
-  @ApiPropertyOptional({ enum: ['Low', 'Medium', 'High', 'Critical'], default: 'Medium' })
-  @IsEnum(['Low', 'Medium', 'High', 'Critical'])
+  @ApiPropertyOptional({ enum: ['TASK', 'BUG', 'EPIC', 'STORY'], default: 'TASK' })
+  @IsEnum(['TASK', 'BUG', 'EPIC', 'STORY'])
   @IsOptional()
-  priority?: 'Low' | 'Medium' | 'High' | 'Critical';
+  type?: 'TASK' | 'BUG' | 'EPIC' | 'STORY';
+
+  @ApiPropertyOptional({ enum: ['NO_PRIORITY', 'LOW', 'MEDIUM', 'HIGH', 'URGENT'], default: 'MEDIUM' })
+  @IsEnum(['NO_PRIORITY', 'LOW', 'MEDIUM', 'HIGH', 'URGENT'])
+  @IsOptional()
+  priority?: 'NO_PRIORITY' | 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
 
   @ApiPropertyOptional({ example: 'To Do' })
   @IsString()
   @IsOptional()
   status?: string;
 
+  @ApiPropertyOptional({ example: 'parent-task-id-here' })
+  @IsString()
+  @IsOptional()
+  parentTaskId?: string;
+
+  @ApiPropertyOptional({ example: ['user-id-1', 'user-id-2'] })
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  assigneeIds?: string[];
+
+  // Legacy support
   @ApiPropertyOptional({ example: 'user-id-here' })
   @IsString()
   @IsOptional()
   assigneeId?: string;
+
+  @ApiPropertyOptional({ example: 5 })
+  @IsNumber()
+  @IsOptional()
+  storyPoints?: number;
+
+  @ApiPropertyOptional({ example: '2026-06-20' })
+  @IsDateString()
+  @IsOptional()
+  startDate?: string;
 
   @ApiPropertyOptional({ example: '2026-06-30' })
   @IsDateString()
@@ -63,10 +90,15 @@ export class UpdateTaskDto {
   @IsOptional()
   description?: string;
 
-  @ApiPropertyOptional({ enum: ['Low', 'Medium', 'High', 'Critical'] })
-  @IsEnum(['Low', 'Medium', 'High', 'Critical'])
+  @ApiPropertyOptional({ enum: ['TASK', 'BUG', 'EPIC', 'STORY'] })
+  @IsEnum(['TASK', 'BUG', 'EPIC', 'STORY'])
   @IsOptional()
-  priority?: 'Low' | 'Medium' | 'High' | 'Critical';
+  type?: 'TASK' | 'BUG' | 'EPIC' | 'STORY';
+
+  @ApiPropertyOptional({ enum: ['NO_PRIORITY', 'LOW', 'MEDIUM', 'HIGH', 'URGENT'] })
+  @IsEnum(['NO_PRIORITY', 'LOW', 'MEDIUM', 'HIGH', 'URGENT'])
+  @IsOptional()
+  priority?: 'NO_PRIORITY' | 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
 
   @ApiPropertyOptional()
   @IsString()
@@ -76,7 +108,29 @@ export class UpdateTaskDto {
   @ApiPropertyOptional()
   @IsString()
   @IsOptional()
+  parentTaskId?: string;
+
+  @ApiPropertyOptional()
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  assigneeIds?: string[];
+
+  // Legacy support
+  @ApiPropertyOptional()
+  @IsString()
+  @IsOptional()
   assigneeId?: string;
+
+  @ApiPropertyOptional()
+  @IsNumber()
+  @IsOptional()
+  storyPoints?: number;
+
+  @ApiPropertyOptional()
+  @IsDateString()
+  @IsOptional()
+  startDate?: string;
 
   @ApiPropertyOptional()
   @IsDateString()
@@ -87,4 +141,10 @@ export class UpdateTaskDto {
   @IsString({ each: true })
   @IsOptional()
   labels?: string[];
+
+  @ApiPropertyOptional()
+  @IsBoolean()
+  @IsOptional()
+  isArchived?: boolean;
 }
+

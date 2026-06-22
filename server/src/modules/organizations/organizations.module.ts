@@ -11,6 +11,7 @@ import {
   OrganizationMemberSchema,
 } from '../../database/schemas/organization-member.schema';
 import { Workspace, WorkspaceSchema } from '../../database/schemas/workspace.schema';
+import { UsersModule } from '../users/users.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { Workspace, WorkspaceSchema } from '../../database/schemas/workspace.sch
       { name: OrganizationMember.name, schema: OrganizationMemberSchema },
       { name: Workspace.name, schema: WorkspaceSchema },
     ]),
+    UsersModule,
   ],
   controllers: [OrganizationsController],
   providers: [OrganizationsService],

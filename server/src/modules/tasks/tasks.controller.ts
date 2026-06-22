@@ -24,14 +24,44 @@ export class TasksController {
   @Get()
   @ApiOperation({ summary: 'List all tasks in a project' })
   @ApiQuery({ name: 'projectId', required: true })
-  findAll(@Query('projectId') projectId: string, @User('sub') userId: string) {
-    return this.tasksService.findAllInProject(projectId, userId);
+  @ApiQuery({ name: 'status', required: false })
+  @ApiQuery({ name: 'priority', required: false })
+  @ApiQuery({ name: 'type', required: false })
+  @ApiQuery({ name: 'assigneeId', required: false })
+  @ApiQuery({ name: 'parentTaskId', required: false })
+  @ApiQuery({ name: 'isArchived', required: false, type: Boolean })
+  findAll(
+    @Query('projectId') projectId: string,
+    @User('sub') userId: string,
+    @Query('status') status?: string,
+    @Query('priority') priority?: string,
+    @Query('type') type?: string,
+    @Query('assigneeId') assigneeId?: string,
+    @Query('parentTaskId') parentTaskId?: string,
+    @Query('isArchived') isArchived?: string,
+  ) {
+    const parentIdParsed = parentTaskId === 'null' ? null : parentTaskId;
+    const isArchivedParsed = isArchived !== undefined ? isArchived === 'true' : undefined;
+    return this.tasksService.findAllInProject(projectId, userId, {
+      status,
+      priority,
+      type,
+      assigneeId,
+      parentTaskId: parentIdParsed,
+      isArchived: isArchivedParsed,
+    });
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Get a single task by ID' })
   findOne(@Param('id') id: string, @User('sub') userId: string) {
     return this.tasksService.findById(id, userId);
+  }
+
+  @Get(':id/subtasks')
+  @ApiOperation({ summary: 'Get subtasks of a parent task' })
+  findSubtasks(@Param('id') id: string, @User('sub') userId: string) {
+    return this.tasksService.findSubtasks(id, userId);
   }
 
   @Patch(':id')

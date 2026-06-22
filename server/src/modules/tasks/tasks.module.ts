@@ -6,6 +6,7 @@ import { Project, ProjectSchema } from '../../database/schemas/project.schema';
 import { TasksService } from './tasks.service';
 import { TasksController } from './tasks.controller';
 import { UsersModule } from '../users/users.module';
+import { ProjectsModule } from '../projects/projects.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { UsersModule } from '../users/users.module';
       { name: Project.name, schema: ProjectSchema },
     ]),
     UsersModule,
+    ProjectsModule,
   ],
   providers: [TasksService],
   controllers: [TasksController],

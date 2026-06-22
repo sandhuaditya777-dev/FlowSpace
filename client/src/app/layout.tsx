@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import QueryProvider from "@/providers/QueryProvider";
 import AuthProvider from "@/providers/AuthProvider";
+import SocketProvider from "@/providers/SocketProvider";
 import { Toaster } from 'sonner';
 import { TooltipProvider } from "@/components/ui/tooltip";
 
@@ -34,10 +35,12 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col bg-slate-950 text-slate-100 font-sans">
         <QueryProvider>
           <AuthProvider>
-            <TooltipProvider>
-              {children}
-              <Toaster richColors theme="dark" closeButton position="top-right" />
-            </TooltipProvider>
+            <SocketProvider>
+              <TooltipProvider>
+                {children}
+                <Toaster richColors theme="dark" closeButton position="top-right" />
+              </TooltipProvider>
+            </SocketProvider>
           </AuthProvider>
         </QueryProvider>
       </body>

@@ -1,8 +1,11 @@
 "use client";
 
+import React from "react";
 import { useForm, Controller } from "react-hook-form";
-import { CheckSquare } from "lucide-react";
+import { CheckSquare, Calendar, Users, Target, BookOpen, AlertCircle } from "lucide-react";
 import { useCreateTask } from "@/api/tasks";
+import { useOrgMembers } from "@/api/organizations";
+import { useUIStore } from "@/store/ui.store";
 import {
   Dialog,
   DialogContent,
@@ -22,21 +25,32 @@ interface Props {
   statuses: string[];
 }
 
-const PRIORITIES = ["Low", "Medium", "High", "Critical"] as const;
-
-const PRIORITY_STYLES = {
-  Low: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/25",
-  Medium: "bg-amber-500/10 text-amber-400 border-amber-500/30 hover:bg-amber-500/25",
-  High: "bg-orange-500/10 text-orange-400 border-orange-500/30 hover:bg-orange-500/25",
-  Critical: "bg-red-500/10 text-red-400 border-red-500/30 hover:bg-red-500/25",
-};
-
 interface FormValues {
   title: string;
   description: string;
-  priority: "Low" | "Medium" | "High" | "Critical";
+  type: 'TASK' | 'BUG' | 'EPIC' | 'STORY';
+  priority: 'NO_PRIORITY' | 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
   status: string;
+  storyPoints: number | "";
+  startDate: string;
+  dueDate: string;
+  assigneeIds: string[];
 }
+
+const PRIORITIES = [
+  { value: 'NO_PRIORITY', label: 'None',   dot: 'bg-slate-500',   style: 'bg-slate-500/10 text-slate-400 border-slate-500/30 hover:bg-slate-500/25' },
+  { value: 'LOW',         label: 'Low',    dot: 'bg-emerald-400', style: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/25' },
+  { value: 'MEDIUM',      label: 'Medium', dot: 'bg-amber-400',   style: 'bg-amber-500/10 text-amber-400 border-amber-500/30 hover:bg-amber-500/25' },
+  { value: 'HIGH',        label: 'High',   dot: 'bg-orange-400',  style: 'bg-orange-500/10 text-orange-400 border-orange-500/30 hover:bg-orange-500/25' },
+  { value: 'URGENT',      label: 'Urgent', dot: 'bg-red-400',    style: 'bg-red-500/10 text-red-400 border-red-500/30 hover:bg-red-500/25' },
+] as const;
+
+const TASK_TYPES = [
+  { value: 'TASK',  label: 'Task' },
+  { value: 'BUG',   label: 'Bug' },
+  { value: 'EPIC',  label: 'Epic' },
+  { value: 'STORY', label: 'Story' },
+] as const;
 
 export default function CreateTaskDialog({
   open,
@@ -45,6 +59,9 @@ export default function CreateTaskDialog({
   workspaceId,
   statuses,
 }: Props) {
+  const { activeOrgId } = useUIStore();
+  const { data: orgMembers = [] } = useOrgMembers(activeOrgId);
+
   const {
     register,
     handleSubmit,
@@ -55,8 +72,13 @@ export default function CreateTaskDialog({
     defaultValues: {
       title: "",
       description: "",
-      priority: "Medium",
+      type: "TASK",
+      priority: "MEDIUM",
       status: statuses[0] || "To Do",
+      storyPoints: "",
+      startDate: "",
+      dueDate: "",
+      assigneeIds: [],
     },
   });
   const { mutate, isPending, error: apiError } = useCreateTask();
@@ -66,8 +88,13 @@ export default function CreateTaskDialog({
       {
         title: data.title.trim(),
         description: data.description.trim(),
+        type: data.type,
         priority: data.priority,
         status: data.status,
+        storyPoints: data.storyPoints === "" ? undefined : Number(data.storyPoints),
+        startDate: data.startDate || undefined,
+        dueDate: data.dueDate || undefined,
+        assigneeIds: data.assigneeIds,
         projectId,
         workspaceId,
       },
@@ -76,8 +103,13 @@ export default function CreateTaskDialog({
           reset({
             title: "",
             description: "",
-            priority: "Medium",
+            type: "TASK",
+            priority: "MEDIUM",
             status: statuses[0] || "To Do",
+            storyPoints: "",
+            startDate: "",
+            dueDate: "",
+            assigneeIds: [],
           });
           onClose();
         },
@@ -92,7 +124,7 @@ export default function CreateTaskDialog({
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
-      <DialogContent className="bg-slate-900 border border-slate-800 text-slate-100 sm:max-w-md">
+      <DialogContent className="bg-slate-900 border border-slate-800 text-slate-100 sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <div className="flex items-center gap-3 mb-1">
             <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-indigo-500 to-pink-500 flex items-center justify-center flex-shrink-0">
@@ -103,13 +135,14 @@ export default function CreateTaskDialog({
                 Create Task
               </DialogTitle>
               <DialogDescription className="text-[11px] text-slate-500">
-                Define scope and priority details
+                Define the scope and assignments for this item
               </DialogDescription>
             </div>
           </div>
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
+          {/* Title */}
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-medium text-slate-400">Task Title</label>
             <Input
@@ -125,6 +158,7 @@ export default function CreateTaskDialog({
             )}
           </div>
 
+          {/* Description */}
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-medium text-slate-400">Description <span className="text-slate-600">(optional)</span></label>
             <Textarea
@@ -135,44 +169,31 @@ export default function CreateTaskDialog({
             />
           </div>
 
+          {/* Type + Status */}
           <div className="grid grid-cols-2 gap-4">
-            {/* Priority */}
             <div className="flex flex-col gap-1.5 text-left">
               <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                Priority
+                Type
               </span>
-              <Controller
-                name="priority"
-                control={control}
-                render={({ field }) => (
-                  <div className="flex flex-wrap gap-1.5 mt-0.5">
-                    {PRIORITIES.map((p) => (
-                      <button
-                        key={p}
-                        type="button"
-                        onClick={() => field.onChange(p)}
-                        className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition-all ${
-                          field.value === p
-                            ? PRIORITY_STYLES[p]
-                            : "bg-slate-900 text-slate-500 border-slate-800 hover:border-slate-700 hover:text-slate-400"
-                        }`}
-                      >
-                        {p}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              />
+              <select
+                {...register("type")}
+                className="w-full bg-slate-800/50 border border-slate-700 text-sm text-slate-200 rounded-lg h-9 px-3 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              >
+                {TASK_TYPES.map((t) => (
+                  <option key={t.value} value={t.value} className="bg-slate-900">
+                    {t.label}
+                  </option>
+                ))}
+              </select>
             </div>
 
-            {/* Status */}
             <div className="flex flex-col gap-1.5 text-left">
               <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
                 Status
               </span>
               <select
                 {...register("status")}
-                className="w-full bg-slate-800/50 border border-slate-700 text-sm text-slate-200 rounded-lg h-9 px-3 transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                className="w-full bg-slate-800/50 border border-slate-700 text-sm text-slate-200 rounded-lg h-9 px-3 focus:outline-none focus:ring-1 focus:ring-indigo-500"
               >
                 {statuses.map((s) => (
                   <option key={s} value={s} className="bg-slate-900">
@@ -183,13 +204,130 @@ export default function CreateTaskDialog({
             </div>
           </div>
 
+          {/* Priority */}
+          <div className="flex flex-col gap-1.5 text-left">
+            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+              Priority
+            </span>
+            <Controller
+              name="priority"
+              control={control}
+              render={({ field }) => (
+                <div className="flex flex-wrap gap-1.5 mt-0.5">
+                  {PRIORITIES.map((p) => (
+                    <button
+                      key={p.value}
+                      type="button"
+                      onClick={() => field.onChange(p.value)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${
+                        field.value === p.value
+                          ? p.style
+                          : "bg-slate-900 text-slate-500 border-slate-800 hover:border-slate-700 hover:text-slate-400"
+                      }`}
+                    >
+                      <span className={`h-1.5 w-1.5 rounded-full ${p.dot}`} />
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            />
+          </div>
+
+          {/* Story Points */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-medium text-slate-400">Story Points <span className="text-slate-600">(optional)</span></label>
+            <Input
+              type="number"
+              placeholder="e.g. 5"
+              className="bg-slate-800/50 border-slate-700 text-slate-100 placeholder:text-slate-500"
+              {...register("storyPoints")}
+            />
+          </div>
+
+          {/* Assignees Selection */}
+          <div className="flex flex-col gap-1.5 text-left">
+            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+              <Users className="h-3.5 w-3.5" /> Assignees
+            </span>
+            <Controller
+              name="assigneeIds"
+              control={control}
+              render={({ field }) => (
+                <div className="flex gap-2 flex-wrap max-h-24 overflow-y-auto p-1 bg-slate-950/20 border border-slate-800/40 rounded-xl">
+                  {orgMembers.map((member) => {
+                    const user = member.user || { name: `User ${member.userId}`, avatar: "" };
+                    const initials = user.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+                    const isSelected = field.value.includes(member.userId);
+                    return (
+                      <button
+                        key={member.userId}
+                        type="button"
+                        onClick={() => {
+                          if (isSelected) {
+                            field.onChange(field.value.filter(id => id !== member.userId));
+                          } else {
+                            field.onChange([...field.value, member.userId]);
+                          }
+                        }}
+                        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[10px] font-semibold transition-all ${
+                          isSelected
+                            ? "bg-indigo-500/20 border-indigo-500/50 text-indigo-300 shadow-sm shadow-indigo-500/10"
+                            : "bg-slate-800/50 border-slate-700/60 text-slate-400 hover:text-slate-200 hover:border-slate-600"
+                        }`}
+                      >
+                        <div className="h-4.5 w-4.5 rounded-full bg-indigo-600/30 border border-indigo-500/20 flex items-center justify-center text-[7px] font-bold text-indigo-200 overflow-hidden flex-shrink-0">
+                          {user.avatar ? (
+                            <img src={user.avatar} alt={user.name} className="h-full w-full object-cover" />
+                          ) : (
+                            initials
+                          )}
+                        </div>
+                        <span className="truncate max-w-[80px]">{user.name}</span>
+                      </button>
+                    );
+                  })}
+                  {orgMembers.length === 0 && (
+                    <span className="text-xs text-slate-600 p-1 italic">No organization members found</span>
+                  )}
+                </div>
+              )}
+            />
+          </div>
+
+          {/* Dates */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="flex flex-col gap-1.5 text-left">
+              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                <Calendar className="h-3.5 w-3.5 text-slate-500" /> Start Date
+              </span>
+              <Input
+                type="date"
+                className="bg-slate-800/50 border-slate-700 text-slate-100"
+                {...register("startDate")}
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5 text-left">
+              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                <Calendar className="h-3.5 w-3.5 text-slate-500" /> Due Date
+              </span>
+              <Input
+                type="date"
+                className="bg-slate-800/50 border-slate-700 text-slate-100"
+                {...register("dueDate")}
+              />
+            </div>
+          </div>
+
           {apiError && (
-            <p className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
+            <p className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2 flex items-center gap-2">
+              <AlertCircle className="h-4 w-4 flex-shrink-0" />
               {(apiError as Error).message}
             </p>
           )}
 
-          <div className="flex gap-2.5 pt-1">
+          <div className="flex gap-2.5 pt-2">
             <Button
               type="button"
               variant="secondary"
@@ -201,7 +339,7 @@ export default function CreateTaskDialog({
             <Button
               type="submit"
               variant="default"
-              className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white"
+              className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/15"
               disabled={isPending}
             >
               {isPending ? "Creating…" : "Create Task"}
