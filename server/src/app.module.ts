@@ -9,6 +9,8 @@ import { ProjectsModule } from './modules/projects/projects.module';
 import { TasksModule } from './modules/tasks/tasks.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { OrganizationsModule } from './modules/organizations/organizations.module';
+import { CommentsModule } from './modules/comments/comments.module';
+import { SocketModule } from './socket/socket.module';
 
 @Module({
   imports: [
@@ -22,15 +24,18 @@ import { OrganizationsModule } from './modules/organizations/organizations.modul
       }),
       inject: [ConfigService],
     }),
+    SocketModule,
     AuthModule,
     UsersModule,
     OrganizationsModule,
     WorkspacesModule,
     ProjectsModule,
     TasksModule,
+    CommentsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
 export class AppModule {}
+
 

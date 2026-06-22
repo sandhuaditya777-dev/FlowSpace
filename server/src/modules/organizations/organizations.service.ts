@@ -21,6 +21,8 @@ import {
   UpdateOrgMemberDto,
 } from './dto/organization.dto';
 
+import { UsersService } from '../users/users.service';
+
 @Injectable()
 export class OrganizationsService {
   constructor(
@@ -30,6 +32,7 @@ export class OrganizationsService {
     private memberModel: Model<OrganizationMemberDocument>,
     @InjectModel(Workspace.name)
     private workspaceModel: Model<WorkspaceDocument>,
+    private readonly usersService: UsersService,
   ) {}
 
   // ─── Slug generation ────────────────────────────────────────────────────────
@@ -165,7 +168,19 @@ export class OrganizationsService {
 
   async listMembers(orgId: string, userId: string) {
     await this.requireMembership(userId, orgId);
-    return this.memberModel.find({ organizationId: orgId });
+    const members = await this.memberModel.find({ organizationId: orgId }).exec();
+    
+    // Populate user profiles
+    const populated = await Promise.all(
+      members.map(async (m) => {
+        const u = await this.usersService.findById(m.userId);
+        return {
+          ...m.toObject(),
+          user: u ? { name: u.name, email: u.email, avatar: u.avatar } : undefined,
+        };
+      })
+    );
+    return populated;
   }
 
   async updateMember(

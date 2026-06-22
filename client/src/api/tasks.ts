@@ -8,9 +8,14 @@ interface CreateTaskData {
   projectId: string;
   workspaceId: string;
   description?: string;
-  priority?: 'Low' | 'Medium' | 'High' | 'Critical';
+  type?: 'TASK' | 'BUG' | 'EPIC' | 'STORY';
+  priority?: 'NO_PRIORITY' | 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
   status?: string;
-  assigneeId?: string;
+  parentTaskId?: string;
+  assigneeIds?: string[];
+  assigneeId?: string; // legacy support
+  storyPoints?: number;
+  startDate?: string;
   dueDate?: string;
   labels?: string[];
 }
@@ -18,11 +23,17 @@ interface CreateTaskData {
 interface UpdateTaskData {
   title?: string;
   description?: string;
-  priority?: 'Low' | 'Medium' | 'High' | 'Critical';
+  type?: 'TASK' | 'BUG' | 'EPIC' | 'STORY';
+  priority?: 'NO_PRIORITY' | 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
   status?: string;
-  assigneeId?: string;
-  dueDate?: string;
+  parentTaskId?: string | null;
+  assigneeIds?: string[];
+  assigneeId?: string | null; // legacy support
+  storyPoints?: number | null;
+  startDate?: string | null;
+  dueDate?: string | null;
   labels?: string[];
+  isArchived?: boolean;
 }
 
 // ── Queries ──────────────────────────────────────────────

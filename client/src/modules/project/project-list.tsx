@@ -14,46 +14,76 @@ interface Props {
   onCreateClick: () => void;
 }
 
-// ── SUB-COMPONENT: PROJECT LIST ITEM (MEMOIZED) ──────────────
+// Priority color dots
+const PRIORITY_DOT: Record<string, string> = {
+  URGENT:      'bg-red-400',
+  HIGH:        'bg-orange-400',
+  MEDIUM:      'bg-amber-400',
+  LOW:         'bg-emerald-400',
+  NO_PRIORITY: 'bg-slate-600',
+};
+
+// Status color indicator
+const STATUS_RING: Record<string, string> = {
+  ACTIVE:    'ring-emerald-500/40',
+  ON_HOLD:   'ring-amber-500/40',
+  ARCHIVED:  'ring-slate-600/40',
+  COMPLETED: 'ring-indigo-500/40',
+};
+
 interface ProjectItemProps {
   project: Project;
   isActive: boolean;
   onSelect: (id: string) => void;
 }
 
-const ProjectItem = React.memo(({ project, isActive, onSelect }: ProjectItemProps) => {
-  const handleClick = () => onSelect(project._id);
-
-  return (
-    <motion.button
-      onClick={handleClick}
-      whileTap={{ scale: 0.98 }}
-      className={`group w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left transition-all cursor-pointer ${
-        isActive
-          ? 'bg-indigo-500/15 text-indigo-300 border border-indigo-500/25'
-          : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 border border-transparent'
+const ProjectItem = React.memo(({ project, isActive, onSelect }: ProjectItemProps) => (
+  <motion.button
+    onClick={() => onSelect(project._id)}
+    whileTap={{ scale: 0.98 }}
+    className={`group w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-left transition-all cursor-pointer ${
+      isActive
+        ? 'bg-indigo-500/15 text-indigo-300 border border-indigo-500/25'
+        : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 border border-transparent'
+    }`}
+  >
+    {/* Color swatch + icon */}
+    <div
+      className={`flex-shrink-0 h-6 w-6 rounded-lg flex items-center justify-center ring-2 ${
+        STATUS_RING[project.status] ?? 'ring-slate-700/40'
       }`}
+      style={{ backgroundColor: project.color ?? '#6366f1' }}
     >
-      <FolderKanban
-        className={`h-4 w-4 flex-shrink-0 ${
-          isActive ? 'text-indigo-400' : 'text-slate-500 group-hover:text-slate-400'
-        }`}
-      />
-      <span className="text-sm font-medium flex-1 truncate">{project.name}</span>
-      {isActive && <ChevronRight className="h-3 w-3 text-indigo-400 flex-shrink-0" />}
-    </motion.button>
-  );
-});
+      <FolderKanban className="h-3 w-3 text-white/80" />
+    </div>
+
+    {/* Name + identifier */}
+    <div className="flex-1 min-w-0">
+      <span className="text-sm font-medium truncate block">{project.name}</span>
+      <span className="text-[10px] text-slate-600 font-mono">{project.identifier}</span>
+    </div>
+
+    {/* Priority dot */}
+    <span
+      className={`flex-shrink-0 h-1.5 w-1.5 rounded-full ${
+        PRIORITY_DOT[project.priority] ?? 'bg-slate-600'
+      }`}
+    />
+
+    {isActive && <ChevronRight className="h-3 w-3 text-indigo-400 flex-shrink-0" />}
+  </motion.button>
+));
 
 ProjectItem.displayName = 'ProjectItem';
 
-// ── MAIN PROJECT LIST COMPONENT ──────────────────────────────
+// ── MAIN ─────────────────────────────────────────────────────────────────────
+
 export default function ProjectList({ workspaceId, activeProjectId, onSelect, onCreateClick }: Props) {
   const { data: projects = [], isLoading } = useProjects(workspaceId);
 
   return (
     <div className="flex flex-col gap-1">
-      {/* List Header */}
+      {/* Header */}
       <div className="flex items-center justify-between px-1 mb-1">
         <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest select-none">
           Projects
@@ -70,7 +100,7 @@ export default function ProjectList({ workspaceId, activeProjectId, onSelect, on
         </Button>
       </div>
 
-      {/* Loading State */}
+      {/* Loading */}
       {isLoading && (
         <div className="flex items-center gap-2 px-3 py-2 text-slate-500 text-xs">
           <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -78,23 +108,25 @@ export default function ProjectList({ workspaceId, activeProjectId, onSelect, on
         </div>
       )}
 
-      {/* Select Workspace Warning */}
+      {/* No workspace selected */}
       {!isLoading && !workspaceId && (
-        <p className="text-xs text-slate-650 px-3 py-2 select-none">Select a workspace first</p>
+        <p className="text-xs text-slate-600 px-3 py-2 select-none italic">
+          Select a workspace first
+        </p>
       )}
 
-      {/* Empty State */}
+      {/* Empty */}
       {!isLoading && workspaceId && projects.length === 0 && (
         <button
           onClick={onCreateClick}
-          className="flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-slate-800 hover:border-slate-700 text-slate-550 hover:text-slate-400 hover:border-slate-600 transition-colors text-xs cursor-pointer"
+          className="flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-slate-800 hover:border-slate-700 text-slate-500 hover:text-slate-400 transition-colors text-xs cursor-pointer"
         >
           <Plus className="h-3.5 w-3.5" />
           Create first project
         </button>
       )}
 
-      {/* Project Navigation Items */}
+      {/* Project list */}
       {!isLoading &&
         projects.map((project: Project) => (
           <ProjectItem

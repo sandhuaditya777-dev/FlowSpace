@@ -279,6 +279,7 @@ export default function Home() {
           open={projDialogOpen}
           onClose={() => setProjDialogOpen(false)}
           workspaceId={activeWorkspaceId}
+          organizationId={activeOrgId!}
           onCreated={(id) => setActiveProjectId(id)}
         />
       )}

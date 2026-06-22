@@ -1,7 +1,8 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Schema as MongooseSchema } from 'mongoose';
 
-export type TaskPriority = 'Low' | 'Medium' | 'High' | 'Critical';
+export type TaskType = 'TASK' | 'BUG' | 'EPIC' | 'STORY';
+export type TaskPriority = 'NO_PRIORITY' | 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
 
 export type TaskDocument = HydratedDocument<Task>;
 
@@ -19,10 +20,23 @@ export class Task {
   @Prop({ default: '' })
   description: string;
 
+  @Prop({ required: true })
+  taskNumber: number;
+
+  @Prop({ required: true })
+  slug: string;
+
   @Prop({
     type: String,
-    enum: ['Low', 'Medium', 'High', 'Critical'],
-    default: 'Medium',
+    enum: ['TASK', 'BUG', 'EPIC', 'STORY'],
+    default: 'TASK',
+  })
+  type: TaskType;
+
+  @Prop({
+    type: String,
+    enum: ['NO_PRIORITY', 'LOW', 'MEDIUM', 'HIGH', 'URGENT'],
+    default: 'MEDIUM',
   })
   priority: TaskPriority;
 
@@ -30,16 +44,43 @@ export class Task {
   status: string;
 
   @Prop({ type: String, default: null })
+  parentTaskId: string | null;
+
+  @Prop({ type: [String], default: [] })
+  assigneeIds: string[];
+
+  // Legacy compatibility for simple UI references
+  @Prop({ type: String, default: null })
   assigneeId: string | null;
+
+  @Prop({ type: Number, default: null })
+  storyPoints: number | null;
+
+  @Prop({ type: Date, default: null })
+  startDate: Date | null;
 
   @Prop({ type: Date, default: null })
   dueDate: Date | null;
+
+  @Prop({ type: Date, default: null })
+  completedAt: Date | null;
 
   @Prop({ type: [String], default: [] })
   labels: string[];
 
   @Prop({ required: true })
   createdBy: string;
+
+  @Prop({ type: String, default: null })
+  updatedBy: string | null;
+
+  @Prop({ type: Boolean, default: false })
+  isArchived: boolean;
 }
 
 export const TaskSchema: MongooseSchema = SchemaFactory.createForClass(Task);
+
+// Compounded index for quick project-scoped task lookup and uniqueness
+TaskSchema.index({ projectId: 1, taskNumber: 1 }, { unique: true });
+TaskSchema.index({ parentTaskId: 1 });
+

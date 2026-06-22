@@ -24,7 +24,7 @@ export class Workspace {
   @Prop({ required: true })
   ownerId: string;
 
-  @Prop({ default: null })
+  @Prop({ type: String, default: null })
   parentId: string | null;
 
   @Prop()
