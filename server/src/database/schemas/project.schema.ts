@@ -94,3 +94,5 @@ export const ProjectSchema: MongooseSchema = SchemaFactory.createForClass(Projec
 
 ProjectSchema.index({ workspaceId: 1, slug: 1 }, { unique: true });
 ProjectSchema.index({ organizationId: 1, identifier: 1 }, { unique: true });
+// Free-tier MongoDB $text search
+ProjectSchema.index({ name: 'text', description: 'text' }, { name: 'project_text_idx', weights: { name: 3, description: 1 } });

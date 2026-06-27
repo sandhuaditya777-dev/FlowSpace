@@ -33,3 +33,5 @@ export class Comment {
 
 export const CommentSchema: MongooseSchema = SchemaFactory.createForClass(Comment);
 CommentSchema.index({ taskId: 1, createdAt: 1 });
+// Free-tier MongoDB $text search
+CommentSchema.index({ content: 'text' }, { name: 'comment_text_idx' });

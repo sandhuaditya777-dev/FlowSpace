@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Orbit, LogOut, Activity, Server, Database, ChevronRight,
+  Columns2, BarChart2,
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '@/store/auth.store';
@@ -17,6 +18,10 @@ import CreateWorkspaceDialog from '@/modules/workspace/create-workspace-dialog';
 import ProjectList from '@/modules/project/project-list';
 import CreateProjectDialog from '@/modules/project/create-project-dialog';
 import KanbanBoard from '@/modules/tasks/kanban-board';
+import NotificationsBell from '@/modules/notifications/notifications-bell';
+import LandingPage from '@/modules/auth/LandingPage';
+import CommandPalette from '@/modules/search/command-palette';
+import AnalyticsPanel from '@/modules/project/analytics-panel';
 import { Button } from '@/components/ui/button';
 import {
   SidebarProvider,
@@ -41,13 +46,7 @@ export default function Home() {
 
   const [wsDialogOpen, setWsDialogOpen] = useState(false);
   const [projDialogOpen, setProjDialogOpen] = useState(false);
-
-  // Auto-redirect to Auth0 if unauthenticated
-  useEffect(() => {
-    if (!isLoading && !isAuthenticated && !error) {
-      loginWithRedirect();
-    }
-  }, [isLoading, isAuthenticated, error, loginWithRedirect]);
+  const [viewMode, setViewMode] = useState<'kanban' | 'analytics'>('kanban');
 
   // Health check
   const { data: healthData, error: healthError } = useQuery({
@@ -70,7 +69,13 @@ export default function Home() {
   };
 
   if (error) return <ErrorScreen error={error} handleLogout={handleLogout} />;
-  if (isLoading || !isAuthenticated) return <LoadingScreen />;
+  if (isLoading) return <LoadingScreen />;
+
+  // ── Show premium landing page for unauthenticated users ──
+  if (!isAuthenticated) {
+    return <LandingPage onLogin={() => loginWithRedirect()} />;
+  }
+
 
   const apiOnline = !!healthData && !healthError;
 
@@ -174,8 +179,45 @@ export default function Home() {
               )}
             </div>
 
-            {/* API Status */}
+            {/* Search */}
+            {activeWorkspaceId && (
+              <CommandPalette
+                workspaceId={activeWorkspaceId}
+                onSelectProject={(id) => setActiveProjectId(id)}
+              />
+            )}
+
+            {/* View toggle (only when a project is active) */}
+            {activeProjectId && (
+              <div className="flex items-center rounded-lg border border-slate-800 bg-slate-900/50 p-0.5 gap-0.5">
+                <button
+                  id="view-kanban-btn"
+                  onClick={() => setViewMode('kanban')}
+                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
+                    viewMode === 'kanban'
+                      ? 'bg-slate-800 text-slate-100 shadow-sm'
+                      : 'text-slate-500 hover:text-slate-300'
+                  }`}
+                >
+                  <Columns2 size={12} /> Kanban
+                </button>
+                <button
+                  id="view-analytics-btn"
+                  onClick={() => setViewMode('analytics')}
+                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
+                    viewMode === 'analytics'
+                      ? 'bg-slate-800 text-slate-100 shadow-sm'
+                      : 'text-slate-500 hover:text-slate-300'
+                  }`}
+                >
+                  <BarChart2 size={12} /> Analytics
+                </button>
+              </div>
+            )}
+
+            {/* API Status + Notifications */}
             <div className="ml-auto flex items-center gap-2">
+              <NotificationsBell />
               <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-semibold ${
                 apiOnline
                   ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
@@ -244,19 +286,26 @@ export default function Home() {
                 </motion.div>
               ) : (
                 <motion.div
-                  key={activeProjectId}
+                  key={`${activeProjectId}-${viewMode}`}
                   initial={{ opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0 }}
                   transition={{ duration: 0.2 }}
                   className="flex flex-col h-full"
                 >
-                  <KanbanBoard
-                    projectId={activeProjectId}
-                    workspaceId={activeWorkspaceId!}
-                    projectName={activeProject?.name ?? 'Project'}
-                    statuses={activeProject?.statuses ?? ['To Do', 'In Progress', 'In Review', 'Completed']}
-                  />
+                  {viewMode === 'kanban' ? (
+                    <KanbanBoard
+                      projectId={activeProjectId}
+                      workspaceId={activeWorkspaceId!}
+                      projectName={activeProject?.name ?? 'Project'}
+                      statuses={activeProject?.statuses ?? ['To Do', 'In Progress', 'In Review', 'Completed']}
+                    />
+                  ) : (
+                    <AnalyticsPanel
+                      projectId={activeProjectId}
+                      memberMap={{}}
+                    />
+                  )}
                 </motion.div>
               )}
             </AnimatePresence>

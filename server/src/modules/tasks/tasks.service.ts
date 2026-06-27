@@ -7,6 +7,8 @@ import { Project, ProjectDocument } from '../../database/schemas/project.schema'
 import { CreateTaskDto, UpdateTaskDto } from './dto/task.dto';
 import { ProjectsService } from '../projects/projects.service';
 import { SocketGateway } from '../../socket/socket.gateway';
+import { ActivityService } from '../activity/activity.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class TasksService {
@@ -16,6 +18,8 @@ export class TasksService {
     @InjectModel(Project.name) private projectModel: Model<ProjectDocument>,
     private readonly projectsService: ProjectsService,
     private readonly socketGateway: SocketGateway,
+    private readonly activityService: ActivityService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   private async assertWorkspaceMember(workspaceId: string, userId: string) {
@@ -26,7 +30,7 @@ export class TasksService {
     return workspace;
   }
 
-  async create(userId: string, dto: CreateTaskDto): Promise<TaskDocument> {
+  async create(userId: string, dto: CreateTaskDto, actorName = 'Someone'): Promise<TaskDocument> {
     await this.assertWorkspaceMember(dto.workspaceId, userId);
     const project = await this.projectModel.findById(dto.projectId);
     if (!project) throw new NotFoundException('Project not found');
@@ -45,6 +49,36 @@ export class TasksService {
 
     const task = await this.taskModel.create(taskData);
     this.socketGateway.broadcastToProject(dto.projectId, 'task:created', task.toObject());
+
+    // Log activity
+    this.activityService.log({
+      actorId: userId,
+      actorName,
+      entityType: 'TASK',
+      entityId: (task._id as unknown as string).toString(),
+      projectId: dto.projectId,
+      workspaceId: dto.workspaceId,
+      action: 'CREATED',
+      metadata: { title: task.title },
+    }).catch(() => {/* ignore */});
+
+    // Notify assignees
+    const assignees = taskData.assigneeIds.filter((id) => id !== userId);
+    if (assignees.length) {
+      this.notificationsService.createMany(
+        assignees.map((uid) => ({
+          userId: uid,
+          actorId: userId,
+          actorName,
+          type: 'TASK_ASSIGNED' as const,
+          title: 'You were assigned a task',
+          body: task.title,
+          entityId: (task._id as unknown as string).toString(),
+          entityType: 'TASK',
+        })),
+      ).catch(() => {/* ignore */});
+    }
+
     return task;
   }
 
@@ -112,9 +146,11 @@ export class TasksService {
       .exec();
   }
 
-  async update(id: string, userId: string, dto: UpdateTaskDto): Promise<TaskDocument> {
+  async update(id: string, userId: string, dto: UpdateTaskDto, actorName = 'Someone'): Promise<TaskDocument> {
     const task = await this.findById(id, userId);
-    
+    const prevStatus = task.status;
+    const prevAssignees = [...(task.assigneeIds ?? [])];
+
     const updates: any = { ...dto, updatedBy: userId };
     if (dto.assigneeIds) {
       updates.assigneeId = dto.assigneeIds[0] || null;
@@ -125,16 +161,61 @@ export class TasksService {
     Object.assign(task, updates);
     const saved = await task.save();
     this.socketGateway.broadcastToProject(saved.projectId, 'task:updated', saved.toObject());
+
+    // Determine what changed for activity log
+    const action = dto.status && dto.status !== prevStatus ? 'STATUS_CHANGED' : 'UPDATED';
+    this.activityService.log({
+      actorId: userId,
+      actorName,
+      entityType: 'TASK',
+      entityId: id,
+      projectId: saved.projectId,
+      workspaceId: saved.workspaceId,
+      action,
+      metadata: dto.status ? { from: prevStatus, to: dto.status } : { fields: Object.keys(dto) },
+    }).catch(() => {/* ignore */});
+
+    // Notify newly assigned members
+    const newAssignees = (saved.assigneeIds ?? []).filter(
+      (uid) => !prevAssignees.includes(uid) && uid !== userId,
+    );
+    if (newAssignees.length) {
+      this.notificationsService.createMany(
+        newAssignees.map((uid) => ({
+          userId: uid,
+          actorId: userId,
+          actorName,
+          type: 'TASK_ASSIGNED' as const,
+          title: 'You were assigned a task',
+          body: saved.title,
+          entityId: id,
+          entityType: 'TASK',
+        })),
+      ).catch(() => {/* ignore */});
+    }
+
     return saved;
   }
 
-  async delete(id: string, userId: string): Promise<{ message: string }> {
+  async delete(id: string, userId: string, actorName = 'Someone'): Promise<{ message: string }> {
     const task = await this.findById(id, userId);
     const projectId = task.projectId;
+    const workspaceId = task.workspaceId;
     const taskId = (task._id as unknown as string).toString();
     await this.taskModel.findByIdAndDelete(task._id);
     this.socketGateway.broadcastToProject(projectId, 'task:deleted', { _id: taskId, projectId });
+
+    this.activityService.log({
+      actorId: userId,
+      actorName,
+      entityType: 'TASK',
+      entityId: taskId,
+      projectId,
+      workspaceId,
+      action: 'DELETED',
+      metadata: { title: task.title },
+    }).catch(() => {/* ignore */});
+
     return { message: 'Task deleted successfully' };
   }
 }
-

@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   X, Calendar, Tag, ChevronDown, Loader2,
   Bug, CheckSquare, Layers, BookOpen, User2,
-  Clock, Flag, Hash, ExternalLink,
+  Clock, Flag, Hash, ExternalLink, MessageSquare, Activity,
 } from 'lucide-react';
 import { useUpdateTask } from '@/api/tasks';
 import { useOrgMembers } from '@/api/organizations';
@@ -13,6 +13,7 @@ import { useUIStore } from '@/store/ui.store';
 import { useSocketEvent } from '@/hooks/useSocket';
 import { useQueryClient } from '@tanstack/react-query';
 import CommentThread from '@/modules/comments/comment-thread';
+import ActivityFeed from '@/modules/tasks/activity-feed';
 import type { Task } from '@/api/types';
 
 interface Props {
@@ -157,6 +158,7 @@ export default function TaskDetailDrawer({ task, onClose, workspaceId, statuses,
   const updateTask = useUpdateTask();
   const { data: orgMembers = [] } = useOrgMembers(activeOrgId);
   const queryClient = useQueryClient();
+  const [activeTab, setActiveTab] = useState<'comments' | 'activity'>('comments');
 
   // Realtime update for this specific task
   const handleTaskUpdated = useCallback(
@@ -460,14 +462,40 @@ export default function TaskDetailDrawer({ task, onClose, workspaceId, statuses,
                 {task.updatedBy && <span>Updated by {memberMap[task.updatedBy]?.name ?? task.updatedBy}</span>}
               </div>
 
-              {/* ── Comments ── */}
+              {/* ── Bottom Tabs: Comments / Activity ── */}
               <div className="border-t border-slate-800/60 pt-4">
-                <CommentThread
-                  taskId={task._id}
-                  projectId={task.projectId}
-                  workspaceId={workspaceId}
-                  memberMap={memberMap}
-                />
+                {/* Tab bar */}
+                <div className="flex gap-1 mb-3 bg-slate-900/50 rounded-lg p-0.5">
+                  {[
+                    { id: 'comments' as const, label: 'Comments', icon: MessageSquare },
+                    { id: 'activity' as const, label: 'Activity', icon: Activity },
+                  ].map(({ id, label, icon: Icon }) => (
+                    <button
+                      key={id}
+                      id={`drawer-tab-${id}`}
+                      onClick={() => setActiveTab(id)}
+                      className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md text-xs font-medium transition-all ${
+                        activeTab === id
+                          ? 'bg-slate-800 text-slate-100 shadow-sm'
+                          : 'text-slate-500 hover:text-slate-300'
+                      }`}
+                    >
+                      <Icon size={12} />
+                      {label}
+                    </button>
+                  ))}
+                </div>
+
+                {activeTab === 'comments' ? (
+                  <CommentThread
+                    taskId={task._id}
+                    projectId={task.projectId}
+                    workspaceId={workspaceId}
+                    memberMap={memberMap}
+                  />
+                ) : (
+                  <ActivityFeed entityId={task._id} />
+                )}
               </div>
             </div>
           </div>

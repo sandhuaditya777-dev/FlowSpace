@@ -83,4 +83,6 @@ export const TaskSchema: MongooseSchema = SchemaFactory.createForClass(Task);
 // Compounded index for quick project-scoped task lookup and uniqueness
 TaskSchema.index({ projectId: 1, taskNumber: 1 }, { unique: true });
 TaskSchema.index({ parentTaskId: 1 });
+// Free-tier MongoDB $text search
+TaskSchema.index({ title: 'text', description: 'text' }, { name: 'task_text_idx', weights: { title: 3, description: 1 } });
 
