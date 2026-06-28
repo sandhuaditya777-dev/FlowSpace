@@ -13,6 +13,7 @@ import { useRealtimeTasks } from '@/hooks/useRealtimeTasks';
 import { usePresence } from '@/hooks/usePresence';
 import CreateTaskDialog from './create-task-dialog';
 import TaskDetailDrawer from './task-detail-drawer';
+import KanbanFilterBar, { EMPTY_FILTERS, type KanbanFilters } from './kanban-filter-bar';
 import type { Task } from '@/api/types';
 import { Button } from '@/components/ui/button';
 
@@ -210,6 +211,7 @@ KanbanCard.displayName = 'KanbanCard';
 export default function KanbanBoard({ projectId, workspaceId, projectName, statuses }: Props) {
   const [createOpen, setCreateOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [filters, setFilters] = useState<KanbanFilters>(EMPTY_FILTERS);
 
   const { activeOrgId } = useUIStore();
   const { user } = useAuthStore();
@@ -255,19 +257,33 @@ export default function KanbanBoard({ projectId, workspaceId, projectName, statu
     return map;
   }, [orgMembers]);
 
-  // 1. Group tasks by status in O(N) instead of C rounds of O(N) array filtering
+  // 1. Collect all unique labels across tasks
+  const allLabels = useMemo(() => {
+    const set = new Set<string>();
+    tasks.forEach((t) => (t.labels ?? []).forEach((l) => set.add(l)));
+    return Array.from(set);
+  }, [tasks]);
+
+  // 2. Apply client-side filters
+  const filteredTasks = useMemo(() => {
+    return tasks.filter((t) => {
+      if (filters.priority   && t.priority   !== filters.priority)   return false;
+      if (filters.type       && t.type       !== filters.type)       return false;
+      if (filters.label      && !(t.labels ?? []).includes(filters.label)) return false;
+      if (filters.assigneeId && !(t.assigneeIds ?? []).includes(filters.assigneeId)) return false;
+      return true;
+    });
+  }, [tasks, filters]);
+
+  // 3. Group filtered tasks by status in O(N)
   const tasksByStatus = useMemo(() => {
     const map: Record<string, Task[]> = {};
-    boardStatuses.forEach((s) => {
-      map[s] = [];
-    });
-    tasks.forEach((t) => {
-      if (map[t.status]) {
-        map[t.status].push(t);
-      }
+    boardStatuses.forEach((s) => { map[s] = []; });
+    filteredTasks.forEach((t) => {
+      if (map[t.status]) map[t.status].push(t);
     });
     return map;
-  }, [tasks, boardStatuses]);
+  }, [filteredTasks, boardStatuses]);
 
   // 2. Memoized callbacks
   const handleMoveNext = useCallback(
@@ -367,6 +383,18 @@ export default function KanbanBoard({ projectId, workspaceId, projectName, statu
           </Button>
         </div>
       </div>
+
+      {/* Filter Bar */}
+      <KanbanFilterBar
+        filters={filters}
+        onChange={setFilters}
+        memberMap={memberMap}
+        allLabels={allLabels}
+        projectId={projectId}
+        token={typeof window !== 'undefined' ? localStorage.getItem('orbit_token') : null}
+        totalTasks={tasks.length}
+        filteredTasks={filteredTasks.length}
+      />
 
       {/* Columns */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 flex-1 items-start">
