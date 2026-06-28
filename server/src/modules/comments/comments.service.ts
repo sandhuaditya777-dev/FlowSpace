@@ -10,6 +10,8 @@ import { Task, TaskDocument } from '../../database/schemas/task.schema';
 import { Workspace, WorkspaceDocument } from '../../database/schemas/workspace.schema';
 import { CreateCommentDto, UpdateCommentDto } from './dto/comment.dto';
 import { SocketGateway } from '../../socket/socket.gateway';
+import { ActivityService } from '../activity/activity.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class CommentsService {
@@ -18,6 +20,8 @@ export class CommentsService {
     @InjectModel(Task.name) private taskModel: Model<TaskDocument>,
     @InjectModel(Workspace.name) private workspaceModel: Model<WorkspaceDocument>,
     private readonly socketGateway: SocketGateway,
+    private readonly activityService: ActivityService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   private async assertWorkspaceMember(workspaceId: string, userId: string) {
@@ -28,7 +32,7 @@ export class CommentsService {
     return workspace;
   }
 
-  async create(userId: string, dto: CreateCommentDto): Promise<CommentDocument> {
+  async create(userId: string, dto: CreateCommentDto, actorName = 'Someone'): Promise<CommentDocument> {
     const task = await this.taskModel.findById(dto.taskId);
     if (!task) throw new NotFoundException('Task not found');
     await this.assertWorkspaceMember(dto.workspaceId, userId);
@@ -42,6 +46,54 @@ export class CommentsService {
     const payload = comment.toObject();
     this.socketGateway.broadcastToProject(dto.projectId, 'comment:created', payload);
     this.socketGateway.broadcastToTask(dto.taskId, 'comment:created', payload);
+
+    // Log activity
+    this.activityService.log({
+      actorId: userId,
+      actorName,
+      entityType: 'TASK',
+      entityId: dto.taskId,
+      projectId: dto.projectId,
+      workspaceId: dto.workspaceId,
+      action: 'COMMENTED',
+      metadata: { commentId: (comment._id as unknown as string).toString() },
+    }).catch(() => {/* ignore */});
+
+    // Notify task assignees about new comment (exclude commenter)
+    const notifyIds = (task.assigneeIds ?? []).filter((id) => id !== userId);
+    if (notifyIds.length) {
+      this.notificationsService.createMany(
+        notifyIds.map((uid) => ({
+          userId: uid,
+          actorId: userId,
+          actorName,
+          type: 'COMMENT_CREATED' as const,
+          title: 'New comment on task',
+          body: `${actorName} commented on: ${task.title}`,
+          entityId: dto.taskId,
+          entityType: 'TASK',
+        })),
+      ).catch(() => {/* ignore */});
+    }
+
+    // Notify mentioned users
+    if (dto.mentions?.length) {
+      const mentionNotify = dto.mentions.filter((id) => id !== userId && !notifyIds.includes(id));
+      if (mentionNotify.length) {
+        this.notificationsService.createMany(
+          mentionNotify.map((uid) => ({
+            userId: uid,
+            actorId: userId,
+            actorName,
+            type: 'MENTION' as const,
+            title: 'You were mentioned',
+            body: `${actorName} mentioned you in: ${task.title}`,
+            entityId: dto.taskId,
+            entityType: 'TASK',
+          })),
+        ).catch(() => {/* ignore */});
+      }
+    }
 
     return comment;
   }

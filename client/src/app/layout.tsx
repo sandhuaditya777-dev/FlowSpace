@@ -20,6 +20,13 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Orbit | Real-Time Collaboration Platform",
   description: "Orbit keeps your team in sync with real-time tasks, kanban boards, live chat, and AI assistance.",
+  manifest: '/manifest.json',
+  themeColor: '#6366f1',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'Orbit',
+  },
 };
 
 export default function RootLayout({
@@ -43,6 +50,18 @@ export default function RootLayout({
             </SocketProvider>
           </AuthProvider>
         </QueryProvider>
+        {/* PWA service worker registration */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              if ('serviceWorker' in navigator) {
+                window.addEventListener('load', function() {
+                  navigator.serviceWorker.register('/sw.js').catch(function() {});
+                });
+              }
+            `,
+          }}
+        />
       </body>
     </html>
   );
